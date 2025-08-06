@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Digital Finance Diary</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: linear-gradient(to right, #e0eafc, #cfdef3);
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      max-width: 800px;
+      margin: 30px auto;
+      padding: 20px;
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    h1, h2 {
+      text-align: center;
+    }
+    .section { display: none; }
+    .visible { display: block; }
+    input, button {
+      padding: 10px;
+      margin: 5px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+    }
+    button { cursor: pointer; }
+    .expense-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    .expense-table th, .expense-table td {
+      border: 1px solid #ccc;
+      padding: 10px;
+      text-align: center;
+    }
+    .expense-table th {
+      background-color: #27ae60;
+      color: white;
+    }
+    .month-header {
+      background-color: #d5f5e3;
+      font-weight: bold;
+      text-align: left;
+    }
+    .totals-box {
+      margin-top: 20px;
+      display: flex;
+      justify-content: space-around;
+      flex-wrap: wrap;
+    }
+    .totals-box div {
+      background-color: #27ae60;
+      color: white;
+      padding: 15px;
+      margin: 5px;
+      border-radius: 10px;
+      min-width: 150px;
+    }
+    .undo-btn {
+      background-color: #f1c40f;
+      color: black;
+      border: none;
+      padding: 5px 10px;
+      border-radius: 5px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    
+    <!-- LOGIN -->
+    <div id="loginSection" class="section visible">
+      <h1>🔐 Login to Digital Finance Diary</h1>
+      <input type="text" id="loginUsername" placeholder="Username"><br>
+      <input type="password" id="loginPassword" placeholder="Password">
+      <button onclick="toggleVisibility('loginPassword')">👁</button><br>
+      <button onclick="login()">Login</button>
+      <p><a href="#" onclick="showSection('signupSection')">Don't have an account? Sign up</a></p>
+      <p><a href="#" onclick="showSection('resetSection')">Forgot Password?</a></p>
+    </div>
+
+    <!-- SIGNUP -->
+    <div id="signupSection" class="section">
+      <h2>📝 Sign Up</h2>
+      <input type="text" id="signupUsername" placeholder="Choose a username"><br>
+      <input type="password" id="signupPassword" placeholder="Create password">
+      <button onclick="toggleVisibility('signupPassword')">👁</button><br>
+      <button onclick="signup()">Create Account</button>
+      <p><a href="#" onclick="showSection('loginSection')">Already have an account? Login</a></p>
+    </div>
+
+    <!-- RESET PASSWORD -->
+    <div id="resetSection" class="section">
+      <h2>🔑 Reset Password</h2>
+      <input type="text" id="resetUsername" placeholder="Enter your username"><br>
+      <input type="password" id="newPassword" placeholder="New Password">
+      <button onclick="toggleVisibility('newPassword')">👁</button><br>
+      <input type="password" id="confirmPassword" placeholder="Confirm New Password">
+      <button onclick="toggleVisibility('confirmPassword')">👁</button><br>
+      <button onclick="resetPassword()">Reset Password</button>
+      <p><a href="#" onclick="showSection('loginSection')">Back to Login</a></p>
+    </div>
+
+    <!-- TRACKER -->
+    <div id="trackerSection" class="section">
+      <h1>💰 Digital Finance Diary</h1>
+      <input type="text" id="expenseName" placeholder="Expense Name">
+      <input type="number" id="expenseAmount" placeholder="Amount">
+      <input type="date" id="expenseDate">
+      <button onclick="addExpense()">➕ Add Expense</button>
+      <table class="expense-table" id="expenseTable">
+        <thead>
+          <tr>
+            <th>Expense Name</th>
+            <th>Amount</th>
+            <th>Date</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+      <div class="totals-box">
+        <div id="totalDisplay">Total: ₹0</div>
+        <div id="monthlyTotals">📅 Monthly Totals</div>
+        <div id="yearlyTotals">📅 Yearly Totals</div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    let currentUser = null;
+    let expenses = [];
+    let lastDeleted = null;
+
+    function showSection(id) {
+      document.querySelectorAll('.section').forEach(s => s.classList.remove('visible'));
+      document.getElementById(id).classList.add('visible');
+    }
+
+    function toggleVisibility(id) {
+      const input = document.getElementById(id);
+      input.type = input.type === "password" ? "text" : "password";
+    }
+
+    function signup() {
+      const username = document.getElementById('signupUsername').value.trim();
+      const password = document.getElementById('signupPassword').value;
+
+      if (!username || !password) return alert("Fill all fields.");
+      if (localStorage.getItem(`user_${username}`)) {
+        return alert("Username already exists.");
+      }
+
+      const user = { password, expenses: [] };
+      localStorage.setItem(`user_${username}`, JSON.stringify(user));
+      alert("Account created. Please login.");
+      showSection("loginSection");
+    }
+
+    function login() {
+      const username = document.getElementById('loginUsername').value.trim();
+      const password = document.getElementById('loginPassword').value;
+
+      const userData = localStorage.getItem(`user_${username}`);
+      if (!userData) return alert("Invalid username or password.");
+
+      const user = JSON.parse(userData);
+      if (user.password !== password) return alert("Invalid username or password.");
+
+      currentUser = username;
+      expenses = user.expenses || [];
+      showSection("trackerSection");
+      renderExpenses();
+    }
+
+    function resetPassword() {
+      const username = document.getElementById("resetUsername").value.trim();
+      const newPass = document.getElementById("newPassword").value;
+      const confirmPass = document.getElementById("confirmPassword").value;
+
+      if (!username || !newPass || !confirmPass) return alert("Fill all fields.");
+      if (newPass !== confirmPass) return alert("Passwords do not match.");
+      const userData = localStorage.getItem(`user_${username}`);
+      if (!userData) return alert("Username not found.");
+
+      const user = JSON.parse(userData);
+      user.password = newPass;
+      localStorage.setItem(`user_${username}`, JSON.stringify(user));
+      alert("Successfully changed password. Please login to Digital Finance Diary.");
+      showSection("loginSection");
+    }
+
+    function addExpense() {
+      const name = document.getElementById("expenseName").value;
+      const amount = Number(document.getElementById("expenseAmount").value);
+      const date = document.getElementById("expenseDate").value;
+      if (!name || !amount || !date) return alert("Fill all fields.");
+      expenses.push({ name, amount, date });
+      expenses.sort((a,b)=> new Date(b.date)-new Date(a.date));
+      saveData();
+      renderExpenses();
+      clearInputs();
+    }
+
+    function clearInputs(){
+      document.getElementById("expenseName").value = "";
+      document.getElementById("expenseAmount").value = "";
+      document.getElementById("expenseDate").value = "";
+    }
+
+    function deleteExpense(index){
+      lastDeleted = {...expenses[index], index};
+      expenses.splice(index,1);
+      saveData();
+      renderExpenses();
+      const tbody = document.querySelector("#expenseTable tbody");
+      const tr = document.createElement("tr");
+      const td = document.createElement("td");
+      td.colSpan = 4;
+      td.innerHTML = `Expense deleted. <button class='undo-btn' onclick='undoDelete()'>Undo</button>`;
+      tr.appendChild(td);
+      tbody.insertBefore(tr, tbody.firstChild);
+    }
+
+    function undoDelete(){
+      if(lastDeleted){
+        expenses.splice(lastDeleted.index, 0, lastDeleted);
+        lastDeleted = null;
+        saveData();
+        renderExpenses();
+      }
+    }
+
+    function renderExpenses(){
+      const tbody = document.querySelector("#expenseTable tbody");
+      tbody.innerHTML = "";
+      let grouped = {};
+      expenses.forEach(exp => {
+        const [y,m] = exp.date.split("-");
+        const key = `${y}-${m}`;
+        if (!grouped[key]) grouped[key] = [];
+        grouped[key].push(exp);
+      });
+
+      Object.keys(grouped).sort().reverse().forEach(key => {
+        const [y, m] = key.split("-");
+        const monthHeader = document.createElement("tr");
+        monthHeader.innerHTML = `<td colspan='4' class='month-header'>📅 ${new Date(y,m-1).toLocaleString('default', { month: 'long', year: 'numeric' })}</td>`;
+        tbody.appendChild(monthHeader);
+        grouped[key].forEach((e, i) => {
+          const row = document.createElement("tr");
+          row.innerHTML = `
+            <td>${e.name}</td>
+            <td>₹${e.amount}</td>
+            <td>${e.date}</td>
+            <td><button onclick='deleteExpense(${expenses.indexOf(e)})'>Delete</button></td>
+          `;
+          tbody.appendChild(row);
+        });
+      });
+      updateTotals();
+    }
+
+    function updateTotals(){
+      let total = 0;
+      let monthly = {};
+      let yearly = {};
+      expenses.forEach(e => {
+        total += e.amount;
+        const [y, m] = e.date.split("-");
+        const month = `${y}-${m}`;
+        const year = `${y}`;
+        if (!monthly[month]) monthly[month] = 0;
+        if (!yearly[year]) yearly[year] = 0;
+        monthly[month] += e.amount;
+        yearly[year] += e.amount;
+      });
+      document.getElementById("totalDisplay").innerText = `Total: ₹${total}`;
+
+      let mText = "📅 Monthly Totals\n";
+      Object.keys(monthly).sort().reverse().forEach(m => {
+        const [y, mo] = m.split("-");
+        mText += `${new Date(y, mo - 1).toLocaleString('default', { month: 'long', year: 'numeric' })}: ₹${monthly[m]}\n`;
+      });
+      document.getElementById("monthlyTotals").innerText = mText;
+
+      let yText = "📅 Yearly Totals\n";
+      Object.keys(yearly).sort().reverse().forEach(y => {
+        yText += `${y}: ₹${yearly[y]}\n`;
+      });
+      document.getElementById("yearlyTotals").innerText = yText;
+    }
+
+    function saveData() {
+      if (currentUser) {
+        const user = JSON.parse(localStorage.getItem(`user_${currentUser}`));
+        user.expenses = expenses;
+        localStorage.setItem(`user_${currentUser}`, JSON.stringify(user));
+      }
+    }
+  </script>
+</body>
+</html>
